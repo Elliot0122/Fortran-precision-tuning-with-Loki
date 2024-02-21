@@ -45,17 +45,17 @@ if __name__ == "__main__":
     new_logPath = sys.argv[1]
     original_logPath = sys.argv[2]
 
-    if "prose_logs/0000" in new_logPath:
-        outLog = sorted([ os.path.join(new_logPath, x) for x in os.listdir(new_logPath) if x == "stdout.txt"])[-1]
+    if "variants/0000" in new_logPath:
+        outLog = sorted([ os.path.join(new_logPath, x) for x in os.listdir(new_logPath) if x == "outlog.txt"])[-1]
         new_result, new_time = read_stdout(outLog)
 
         print(new_time)
         exit()
     else:
-        original_outLog = sorted([ os.path.join(original_logPath, x) for x in os.listdir(original_logPath) if x == "stdout.txt" ])[-1]
+        original_outLog = sorted([ os.path.join(original_logPath, x) for x in os.listdir(original_logPath) if x == "outlog.txt" ])[-1]
         original_result, original_time = read_stdout(original_outLog)
 
-        outLog = sorted([ os.path.join(new_logPath, x) for x in os.listdir(new_logPath) if x == "stdout.txt" ])[-1]
+        outLog = sorted([ os.path.join(new_logPath, x) for x in os.listdir(new_logPath) if x == "outlog.txt" ])[-1]
 
         new_result, new_time = read_stdout(outLog)
 

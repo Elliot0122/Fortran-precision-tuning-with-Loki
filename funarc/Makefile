@@ -14,5 +14,5 @@ clean:
 	rm -rf *.mod *.o main
 
 reset: clean
-	rm  -rf *.rmod prose_* *postprocessed*
+	rm  -rf variants
 	git checkout *90
