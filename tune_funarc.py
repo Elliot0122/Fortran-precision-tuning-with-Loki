@@ -25,26 +25,48 @@ def dummy_generate_search_space():
     return search_space
 
 
-def dummy_apply_precision_assignment(precision_assignment):
-    print("\n** dummy transformation NOT actually applying the following precision assignment to funarc:")
-    pprint(precision_assignment)
-    return
+def apply_precision_assignment(precision_assignment):
 
-
-# return the cost if successfully compiled, run, and passed correctness checks; else, returns inf
-def compile_run_eval():
-
-    print("\n** compiling")
+    # create directory that will eventually contain the transformed funarc code and the outlog.txt
+    # from the run that the eval script will use as input to measure correctness & performance
     subprocess.run(
-        "make",
+        f"mkdir variants/{COUNTER:0>4}",
         cwd="funarc",
         shell=True,
         executable="/bin/bash",
     )
 
+################################################################################################################################################################
+    # TODO: change this block to call your loki transformation which will read in "target_module.f90" and generate the variant
+    # which reflects the "config" entry in the precision_assignment dict; save it as "target_module.f90" in variants/{COUNTER:0>4}.
+    # At the start of compile_run_eval(), the transformed file will be copied to the necessary location
+    # At the end of compile_run_eval(), the original file will be restored
+    subprocess.run(
+        f"echo '** dummy transformation NOT actually applying the following precision assignment to funarc' && cp target_module.f90 variants/{COUNTER:0>4}",
+        cwd="funarc",
+        shell=True,
+        executable="/bin/bash",
+    )
+    print("\n")
+    pprint(precision_assignment)
+################################################################################################################################################################
+
+# return the cost if successfully compiled, run, and passed correctness checks; else, returns inf
+def compile_run_eval():
+
+    # save the original file, move the transformed file, and compile
+    print("\n** compiling")
+    subprocess.run(
+        f"mv target_module.f90 target_module.f90.orig && cp variants/{COUNTER:0>4}/target_module.f90 . && make",
+        cwd="funarc",
+        shell=True,
+        executable="/bin/bash",
+    )
+
+    # execute and save stdout and stderr to be read by the eval program
     print("\n** running")
     subprocess.run(
-        f"mkdir variants/{COUNTER:0>4} && ./main | tee variants/{COUNTER:0>4}/outlog.txt 2>&1",
+        f"./main | tee variants/{COUNTER:0>4}/outlog.txt 2>&1",
         cwd="funarc",
         shell=True,
         executable="/bin/bash",
@@ -66,6 +88,14 @@ def compile_run_eval():
         cost = float("inf")
     else:
         print(f"\tcorrectness check: PASSED")
+
+    # reset for next call to apply_precision_assignment()
+    subprocess.run(
+        f"mv target_module.f90.orig target_module.f90",
+        cwd="funarc",
+        shell=True,
+        executable="/bin/bash",
+    )
 
     return cost
 
@@ -90,7 +120,7 @@ if __name__ == "__main__":
         COUNTER += 1
         print(f"\n============ {COUNTER:0>4} ============")
 
-        dummy_apply_precision_assignment(precision_assignment)
+        apply_precision_assignment(precision_assignment)
         precision_assignment['cost'] = compile_run_eval()
         my_search_algorithm.feedback(precision_assignment)
         precision_assignment = my_search_algorithm.get_next()
