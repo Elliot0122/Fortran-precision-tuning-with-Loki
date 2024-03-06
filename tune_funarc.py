@@ -1,3 +1,5 @@
+from loki import Visitor, flatten, Sourcefile, FindNodes, VariableDeclaration, Literal, fgen
+from pathlib import Path
 from Precimonious import PrecimoniousSearch
 from pprint import pprint
 import subprocess
@@ -25,6 +27,28 @@ def dummy_generate_search_space():
     return search_space
 
 
+def walk_ir(ir, types=None, across_scopes=False):
+    """Depth-first search of the control flow tree."""
+
+    class WalkVisitor(Visitor):
+
+        def visit_Sourcefile(self, o, **kwargs):
+            if not across_scopes:
+                return [o]
+            children = flatten(self.visit(ch, **kwargs) for ch in o.ir)
+            return [o] + children
+
+        visit_ProgramUnit = visit_Sourcefile
+
+        def visit_Node(self, o, **kwargs):
+            children = flatten(self.visit(ch, **kwargs) for ch in o.children)
+            return [o] + children
+        
+    for node in flatten(WalkVisitor().visit(ir)):
+        if node and (types is None or isinstance(node, types)):
+            yield node
+
+
 def apply_precision_assignment(precision_assignment):
 
     # create directory that will eventually contain the transformed funarc code and the outlog.txt
@@ -37,18 +61,35 @@ def apply_precision_assignment(precision_assignment):
     )
 
 ################################################################################################################################################################
-    # TODO: change this block to call your loki transformation which will read in "target_module.f90" and generate the variant
-    # which reflects the "config" entry in the precision_assignment dict; save it as "target_module.f90" in variants/{COUNTER:0>4}.
+    # this block calls the loki transformation which reads in "target_module.f90" and generates the variant
+    # which reflects the "config" entry in the precision_assignment dict; saved as "target_module.f90" in variants/{COUNTER:0>4}.
     # At the start of compile_run_eval(), the transformed file will be copied to the necessary location
     # At the end of compile_run_eval(), the original file will be restored
-    subprocess.run(
-        f"echo '** dummy transformation NOT actually applying the following precision assignment to funarc' && cp target_module.f90 variants/{COUNTER:0>4}",
-        cwd="funarc",
-        shell=True,
-        executable="/bin/bash",
-    )
-    print("\n")
-    pprint(precision_assignment)
+
+    # prune the precision assignment to only include the scopedVarName
+    candidates = {}
+    for i in precision_assignment['config']:
+        key = i.split('::')[-1]
+        candidates[key] = precision_assignment['config'][i]
+
+    # source file to modify
+    source = Sourcefile.from_file("funarc/target_module.f90", preprocess=True)
+
+    # find all real variables in the source file
+    variables = []
+    for node in walk_ir(source.ir, across_scopes=True):
+        variables.extend(FindNodes(match=VariableDeclaration, mode='type', greedy=False).visit_TypeDef(node))
+
+    # apply the precision assignment
+    for v in variables:
+        for s in v.symbols:
+            if s in candidates:
+                typeS = s.type
+                typeS.kind = Literal(candidates[s])
+                s.type = typeS
+
+    # write the modified source file to disk
+    Sourcefile.to_file(fgen(source.ir), Path(f"funarc/variants/{COUNTER:0>4}/target_module.f90"))
 ################################################################################################################################################################
 
 # return the cost if successfully compiled, run, and passed correctness checks; else, returns inf
