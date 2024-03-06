@@ -60,6 +60,9 @@ def apply_precision_assignment(precision_assignment):
         executable="/bin/bash",
     )
 
+    with open(f"funarc/variants/{COUNTER:0>4}/precision_assignment.txt", "w") as f:
+        pprint(precision_assignment['config'], stream=f)
+
 ################################################################################################################################################################
     # this block calls the loki transformation which reads in "target_module.f90" and generates the variant
     # which reflects the "config" entry in the precision_assignment dict; saved as "target_module.f90" in variants/{COUNTER:0>4}.
