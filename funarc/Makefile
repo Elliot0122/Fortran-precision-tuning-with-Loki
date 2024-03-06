@@ -11,7 +11,7 @@ target_module: target_module.f90
 	$(FC) $(FFLAGS) -c target_module.f90
 
 clean:
-	rm -rf *.mod *.o main
+	rm -rf *.mod *.o main *.orig
 
 reset: clean
 	rm  -rf variants
