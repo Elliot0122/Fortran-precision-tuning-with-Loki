@@ -55,32 +55,61 @@ def apply_precision_assignment(precision_assignment):
 def compile_run_eval():
 
     # save the original file, move the transformed file, and compile
-    print("\n** compiling")
-    subprocess.run(
-        f"mv target_module.f90 target_module.f90.orig && cp variants/{COUNTER:0>4}/target_module.f90 . && make",
-        cwd="funarc",
-        shell=True,
-        executable="/bin/bash",
-    )
+    print("** compiling")
+    try:
+        subprocess.run(
+            f"mv target_module.f90 target_module.f90.orig && cp variants/{COUNTER:0>4}/target_module.f90 . && make",
+            cwd="funarc",
+            shell=True,
+            executable="/bin/bash",
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    except subprocess.CalledProcessError as e:
+        print("\t COMPILE ERROR")
+        compile_log = e.output.decode("utf-8").splitlines()
+        with open(f"funarc/variants/{COUNTER:0>4}/compile_error.txt", "w") as f:
+            for line in compile_log:
+                f.write(line+"\n")
+        return float("inf")
+
 
     # execute and save stdout and stderr to be read by the eval program
-    print("\n** running")
-    subprocess.run(
-        f"./main | tee variants/{COUNTER:0>4}/outlog.txt 2>&1",
-        cwd="funarc",
-        shell=True,
-        executable="/bin/bash",
-    )
+    print("** running")
+    try:
+        with open(f"funarc/variants/{COUNTER:0>4}/outlog.txt", "w") as outlog:
+            subprocess.run(
+                "./main",
+                cwd="funarc",
+                shell=True,
+                executable="/bin/bash",
+                check=True,
+                stdout=outlog,
+                stderr=outlog,
+            )
+    except subprocess.CalledProcessError as e:
+        print("\t RUNTIME ERROR")
+        subprocess.run(
+            f"mv funarc/variants/{COUNTER:0>4}/outlog.txt funarc/variants/{COUNTER:0>4}/runtime_error.txt"
+        )
+        return float("inf")
 
-    print("\n** evaluating")
-    output = subprocess.run(
-        f"python3 eval.py variants/{COUNTER:0>4} variants/0000",
-        stdout=subprocess.PIPE,
-        text=True,
-        cwd="funarc",
-        shell=True,
-        executable="/bin/bash",
-    )
+    print("** evaluating")
+    try:
+        output = subprocess.run(
+            f"python3 eval.py variants/{COUNTER:0>4} variants/0000",
+            stdout=subprocess.PIPE,
+            text=True,
+            cwd="funarc",
+            shell=True,
+            executable="/bin/bash",
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print("\t EVAL PROGRAM ERROR")
+        assert(False) # the eval program should not fail
+
     cost = float(output.stdout)
     print(f"\tcost: {abs(cost)}")
     if cost < 0:
