@@ -1,7 +1,5 @@
-FC = ifort
-FFLAGS = -r8
-# FC = gfortran
-# FFLAGS = -fdefault-real-8
+FC = gfortran
+FFLAGS = -fdefault-real-8
 
 default: main
 
