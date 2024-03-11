@@ -5,7 +5,6 @@ from Precimonious import PrecimoniousSearch
 from pprint import pprint
 import subprocess
 import random
-import sys
 
 random.seed(1)
 
