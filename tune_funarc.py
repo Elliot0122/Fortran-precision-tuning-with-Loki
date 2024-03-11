@@ -1,4 +1,5 @@
-from loki import Visitor, flatten, Sourcefile, FindNodes, VariableDeclaration, Literal, fgen
+from loki import Visitor, flatten, Sourcefile, FindNodes, Subroutine, Literal, fgen
+from loki.transform.transform_utilities import single_variable_declaration
 from pathlib import Path
 from Precimonious import PrecimoniousSearch
 from pprint import pprint
@@ -48,7 +49,6 @@ def walk_ir(ir, types=None, across_scopes=False):
         if node and (types is None or isinstance(node, types)):
             yield node
 
-
 def apply_precision_assignment(precision_assignment):
 
     # create directory that will eventually contain the transformed funarc code and the outlog.txt
@@ -70,26 +70,28 @@ def apply_precision_assignment(precision_assignment):
     # At the end of compile_run_eval(), the original file will be restored
 
     # prune the precision assignment to only include the scopedVarName
+    
     candidates = {}
     for i in precision_assignment['config']:
-        key = i.split('::')[-1]
-        candidates[key] = precision_assignment['config'][i]
+        _empty, _module, routine, key = i.split('::')
+        if routine not in candidates:
+            candidates[routine] = {}
+        candidates[routine][key] = precision_assignment['config'][i]
 
     # source file to modify
     source = Sourcefile.from_file("funarc/target_module.f90", preprocess=True)
 
     # find all real variables in the source file
-    variables = []
+    subroutine = []
     for node in walk_ir(source.ir, across_scopes=True):
-        variables.extend(FindNodes(match=VariableDeclaration, mode='type', greedy=False).visit_TypeDef(node))
-
-    # apply the precision assignment
-    for v in variables:
-        for s in v.symbols:
-            if s in candidates:
-                typeS = s.type
-                typeS.kind = Literal(candidates[s])
-                s.type = typeS
+        subroutine.extend(FindNodes(match=Subroutine, mode='type', greedy=False).visit_TypeDef(node))
+    for routine in subroutine:
+        single_variable_declaration(routine)
+        for v in routine.variables:
+            if v in candidates[routine.name]:
+                typeV = v.type
+                typeV.kind = Literal(candidates[routine.name][v])
+                v.type = typeV
 
     # write the modified source file to disk
     Sourcefile.to_file(fgen(source.ir), Path(f"funarc/variants/{COUNTER:0>4}/target_module.f90"))
@@ -192,7 +194,7 @@ if __name__ == "__main__":
     while (precision_assignment):
         COUNTER += 1
         print(f"\n============ {COUNTER:0>4} ============")
-
+        
         apply_precision_assignment(precision_assignment)
         precision_assignment['cost'] = compile_run_eval()
         my_search_algorithm.feedback(precision_assignment)
